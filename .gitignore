@@ -30,3 +30,5 @@ link.config.json
 
 # Vitepress
 docs/.vitepress/cache
+/debug-ts-lib
+/debug-node-app
