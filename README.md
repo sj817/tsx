@@ -16,10 +16,45 @@ TypeScript Execute (tsx): The easiest way to run TypeScript in Node.js
 
 ## 🚀 Features
 
-- ✅ **Enhanced TypeScript Support**: Full support for `const enum` compilation
-- ✅ **Monorepo Ready**: Improved dependency resolution that respects tsconfig in monorepo environments
+- ✅ **Enhanced TypeScript Support**: Full support for `const enum` compilation (implementation reference: [unplugin-inline-enum](https://github.com/unplugin/unplugin-inline-enum))
+- ✅ **Monorepo Ready**: Improved dependency resolution that respects tsconfig.json in monorepo environments, supporting paths mapping in sub-packages
 - ✅ **Zero Configuration**: Works out of the box with TypeScript projects
 - ✅ **Fast Execution**: Optimized for quick TypeScript execution in Node.js
+
+## ✨ Fork Enhancements
+
+This fork introduces two major improvements over the original tsx:
+
+### Const Enum Support
+
+Full compilation support for `const enum` declarations, enabling proper inlining of enum values at runtime. The implementation is based on [unplugin-inline-enum](https://github.com/unplugin/unplugin-inline-enum) for reliable enum processing.
+
+### Enhanced Monorepo Support
+
+Improved dependency resolution in monorepo environments:
+
+- Properly respects `tsconfig.json` files in dependency packages
+- Supports TypeScript `paths` mapping in sub-packages
+- Better resolution of cross-package imports and type definitions
+
+## 📦 Installation
+
+### npm
+
+```bash
+npm install @karinjs/tsx
+# or using pnpm
+pnpm add @karinjs/tsx
+```
+
+### Alias Installation
+
+```bash
+# Using npm
+npm install tsx@npm:@karinjs/tsx
+# or using pnpm
+pnpm add tsx@npm:@karinjs/tsx
+```
 
 <br>
 
@@ -36,4 +71,3 @@ TypeScript Execute (tsx): The easiest way to run TypeScript in Node.js
 		<img src="https://cdn.jsdelivr.net/gh/privatenumber/sponsors/sponsorkit/sponsors.svg">
 	</a>
 </p>
-

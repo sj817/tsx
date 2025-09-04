@@ -1,34 +1,65 @@
-import fs from 'node:fs';
-import path from 'node:path';
-import MagicString from 'magic-string';
-import { babelParse, getLang, isTs } from 'ast-kit';
-import type { Expression, PrivateName } from '@babel/types';
+import fs from 'node:fs'
+import path from 'node:path'
+import MagicString from 'magic-string'
+import { babelParse } from 'ast-kit'
+import type { Expression, PrivateName } from '@babel/types'
 
 // Cache for parsed const enums to avoid re-parsing the same .d.ts files
-const constEnumCache = new Map<string, EnumData>();
+const constEnumCache = new Map<string, EnumData>()
 
 /**
  * Represents a member of an enum.
  */
 interface EnumMember {
-	readonly name: string;
-	readonly value: string | number;
+	readonly name: string
+	readonly value: string | number
 }
 
 /**
  * Represents a declaration of an enum.
  */
 interface EnumDeclaration {
-	readonly id: string;
-	readonly members: ReadonlyArray<EnumMember>;
+	readonly id: string
+	readonly members: ReadonlyArray<EnumMember>
 }
 
 /**
  * Represents the data of enums in a file.
  */
 interface EnumData {
-	readonly declarations: ReadonlyArray<EnumDeclaration>;
-	readonly defines: { readonly [id_key: `${string}.${string}`]: string };
+	readonly declarations: ReadonlyArray<EnumDeclaration>
+	readonly defines: { readonly [id_key: `${string}.${string}`]: string }
+}
+
+const REGEX_DTS: RegExp = /\.d\.[cm]?ts(\?.*)?$/
+const REGEX_LANG_TS: RegExp = /^[cm]?tsx?$/
+
+/**
+ * Returns the language (extension name) of a given filename.
+ * @param filename - The name of the file.
+ * @returns The language of the file.
+ */
+export function getLang (filename: string): string {
+	if (isDts(filename)) return 'dts'
+	return path.extname(filename).replace(/^\./, '').replace(/\?.*$/, '')
+}
+
+/**
+ * Checks if a filename represents a TypeScript declaration file (.d.ts).
+ * @param filename - The name of the file to check.
+ * @returns A boolean value indicating whether the filename is a TypeScript declaration file.
+ */
+export function isDts (filename: string): boolean {
+	return REGEX_DTS.test(filename)
+}
+
+/**
+ * Checks if the given language (ts, mts, cjs, dts, tsx...) is TypeScript.
+ * @param lang - The language to check.
+ * @returns A boolean indicating whether the language is TypeScript.
+ */
+export function isTs (lang?: string): boolean {
+	return !!lang && (lang === 'dts' || REGEX_LANG_TS.test(lang))
 }
 
 /**
@@ -36,36 +67,36 @@ interface EnumData {
  */
 const parseConstEnumsFromAST = (filePath: string): EnumData => {
 	if (constEnumCache.has(filePath)) {
-		return constEnumCache.get(filePath)!;
+		return constEnumCache.get(filePath)!
 	}
 
 	const result: EnumData = {
 		declarations: [],
 		defines: {},
-	};
+	}
 
 	try {
 		if (!fs.existsSync(filePath)) {
-			constEnumCache.set(filePath, result);
-			return result;
+			constEnumCache.set(filePath, result)
+			return result
 		}
 
-		const content = fs.readFileSync(filePath, 'utf8');
-		const lang = getLang(filePath);
+		const content = fs.readFileSync(filePath, 'utf8')
+		const lang = getLang(filePath)
 
 		if (!isTs(lang)) {
-			constEnumCache.set(filePath, result);
-			return result;
+			constEnumCache.set(filePath, result)
+			return result
 		}
 
-		const ast = babelParse(content, lang);
-		const declarations: EnumDeclaration[] = [];
-		const defines: { [id_key: `${string}.${string}`]: string } = {};
+		const ast = babelParse(content, lang)
+		const declarations: EnumDeclaration[] = []
+		const defines: { [id_key: `${string}.${string}`]: string } = {}
 
 		/**
 		 * Evaluates a JavaScript expression and returns the result.
 		 */
-		const evaluate = (exp: string): string | number => new Function(`return ${exp}`)();
+		const evaluate = (exp: string): string | number => new Function(`return ${exp}`)()
 
 		for (const node of ast.body) {
 			// Look for: export const enum EnumName { ... }
@@ -75,123 +106,123 @@ const parseConstEnumsFromAST = (filePath: string): EnumData => {
 				&& node.declaration.type === 'TSEnumDeclaration'
 				&& node.declaration.const === true
 			) {
-				const decl = node.declaration;
-				const id = decl.id.name;
+				const decl = node.declaration
+				const id = decl.id.name
 
-				let lastInitialized: string | number | undefined;
-				const members: EnumMember[] = [];
+				let lastInitialized: string | number | undefined
+				const members: EnumMember[] = []
 
 				for (const e of decl.members) {
-					const key = e.id.type === 'Identifier' ? e.id.name : String(e.id.value);
-					const fullKey = `${id}.${key}` as const;
+					const key = e.id.type === 'Identifier' ? e.id.name : String(e.id.value)
+					const fullKey = `${id}.${key}` as const
 
 					const saveValue = (value: string | number) => {
 						members.push({
 							name: key,
 							value,
-						});
-						defines[fullKey] = JSON.stringify(value);
-					};
+						})
+						defines[fullKey] = JSON.stringify(value)
+					}
 
-					const init = e.initializer;
+					const init = e.initializer
 					if (init) {
-						let value: string | number;
+						let value: string | number
 
 						switch (init.type) {
 							case 'StringLiteral':
 							case 'NumericLiteral': {
-								value = init.value;
+								value = init.value
 
-								break;
+								break
 							}
 							case 'BinaryExpression': {
 								const resolveValue = (node: Expression | PrivateName) => {
 									if (node.type === 'NumericLiteral' || node.type === 'StringLiteral') {
-										return node.value;
+										return node.value
 									} if (node.type === 'MemberExpression') {
-										const exp = content.slice(node.start!, node.end!) as `${string}.${string}`;
+										const exp = content.slice(node.start!, node.end!) as `${string}.${string}`
 										if (!(exp in defines)) {
-											throw new Error(`Unresolved enum reference: ${exp}`);
+											throw new Error(`Unresolved enum reference: ${exp}`)
 										}
-										return JSON.parse(defines[exp]);
+										return JSON.parse(defines[exp])
 									}
-									throw new Error(`Unsupported operand type: ${node.type}`);
-								};
+									throw new Error(`Unsupported operand type: ${node.type}`)
+								}
 
-								const leftValue = resolveValue(init.left);
-								const rightValue = resolveValue(init.right);
-								const exp = `${leftValue}${init.operator}${rightValue}`;
-								value = evaluate(exp);
+								const leftValue = resolveValue(init.left)
+								const rightValue = resolveValue(init.right)
+								const exp = `${leftValue}${init.operator}${rightValue}`
+								value = evaluate(exp)
 
-								break;
+								break
 							}
 							case 'UnaryExpression': {
 								if (init.argument.type === 'StringLiteral' || init.argument.type === 'NumericLiteral') {
-									const exp = `${init.operator}${init.argument.value}`;
-									value = evaluate(exp);
+									const exp = `${init.operator}${init.argument.value}`
+									value = evaluate(exp)
 								} else {
-									throw new Error(`Unsupported unary argument type: ${init.argument.type}`);
+									throw new Error(`Unsupported unary argument type: ${init.argument.type}`)
 								}
 
-								break;
+								break
 							}
 							default: {
-								throw new Error(`Unsupported initializer type: ${init.type}`);
+								throw new Error(`Unsupported initializer type: ${init.type}`)
 							}
 						}
 
-						lastInitialized = value;
-						saveValue(value);
+						lastInitialized = value
+						saveValue(value)
 					} else if (lastInitialized === undefined) {
 						// First member without initializer defaults to 0
-						lastInitialized = 0;
-						saveValue(lastInitialized);
+						lastInitialized = 0
+						saveValue(lastInitialized)
 					} else if (typeof lastInitialized === 'number') {
 						// Auto-increment numeric values
-						lastInitialized++;
-						saveValue(lastInitialized);
+						lastInitialized++
+						saveValue(lastInitialized)
 					} else {
-						throw new TypeError(`Cannot auto-increment non-numeric enum value: ${lastInitialized}`);
+						throw new TypeError(`Cannot auto-increment non-numeric enum value: ${lastInitialized}`)
 					}
 				}
 
 				declarations.push({
 					id,
 					members,
-				});
+				})
 			}
 		}
 
 		const enumData: EnumData = {
 			declarations,
 			defines,
-		};
-		constEnumCache.set(filePath, enumData);
-		return enumData;
+		}
+		constEnumCache.set(filePath, enumData)
+		return enumData
 	} catch (error) {
 		// Silently handle parsing errors - don't output to console as it pollutes test output
 		// The error is expected for files with syntax errors like 'broken-syntax.ts'
-		constEnumCache.set(filePath, result);
-		return result;
+		constEnumCache.set(filePath, result)
+		return result
 	}
-};
+}
 
 /**
  * Resolve module path and find TypeScript files containing const enums
  */
 const resolveEnumPath = (importPath: string, currentFile: string): string[] => {
-	const results: string[] = [];
+	const results: string[] = []
 
 	try {
-		const currentDir = path.dirname(currentFile);
-		let resolvedPath: string;
+		const currentDir = path.dirname(currentFile)
+		let resolvedPath: string
 
 		if (importPath.startsWith('./') || importPath.startsWith('../')) {
 			// Relative import
-			resolvedPath = path.resolve(currentDir, importPath);
+			resolvedPath = path.resolve(currentDir, importPath)
 		} else {
 			// Try to resolve as is for now - could be enhanced to handle node_modules
-			resolvedPath = path.resolve(currentDir, importPath);
+			resolvedPath = path.resolve(currentDir, importPath)
 		}
 
 		// Try different extensions and patterns
@@ -200,73 +231,75 @@ const resolveEnumPath = (importPath: string, currentFile: string): string[] => {
 			`${resolvedPath}.ts`,
 			`${resolvedPath}/index.d.ts`,
 			`${resolvedPath}/index.ts`,
-		];
+		]
 
 		// If the path ends with .js, try replacing with .d.ts/.ts
 		if (resolvedPath.endsWith('.js')) {
-			const withoutJs = resolvedPath.slice(0, -3);
+			const withoutJs = resolvedPath.slice(0, -3)
 			candidates.push(
 				`${withoutJs}.d.ts`,
 				`${withoutJs}.ts`,
-			);
+			)
 		}
 
 		for (const candidate of candidates) {
 			if (fs.existsSync(candidate)) {
-				results.push(candidate);
+				results.push(candidate)
 			}
 		}
 	} catch {
 		// Ignore resolution errors
 	}
 
-	return results;
-};
+	return results
+}
 
 /**
  * Transform const enum references in TypeScript code using AST-based parsing
  */
-export const transformConstEnum = (filePath: string, code: string): { code: string;
-	map: any; } | undefined => {
+export const transformConstEnum = (filePath: string, code: string): {
+	code: string
+	map: any
+} | undefined => {
 	// Only process TypeScript and JavaScript files
 	if (!/\.[cm]?[jt]sx?$/.test(filePath)) {
-		return undefined;
+		return undefined
 	}
 
 	// Quick check: if the file doesn't contain import statements, skip processing
 	if (!code.includes('import ')) {
-		return undefined;
+		return undefined
 	}
 
 	try {
-		const s = new MagicString(code);
-		let transformed = false;
+		const s = new MagicString(code)
+		let transformed = false
 
 		// Parse the current file to find imports
-		const lang = getLang(filePath);
-		const ast = babelParse(code, lang);
+		const lang = getLang(filePath)
+		const ast = babelParse(code, lang)
 
 		// Collect all const enum definitions and their values
-		const allDefines: { [key: string]: string } = {};
+		const allDefines: { [key: string]: string } = {}
 
 		// Find all imports that might contain const enums
 		for (const node of ast.body) {
 			if (node.type === 'ImportDeclaration') {
-				const importPath = node.source.value;
-				const enumFiles = resolveEnumPath(importPath, filePath);
+				const importPath = node.source.value
+				const enumFiles = resolveEnumPath(importPath, filePath)
 
 				// Check each resolved file for const enums
 				for (const enumFile of enumFiles) {
-					const enumData = parseConstEnumsFromAST(enumFile);
+					const enumData = parseConstEnumsFromAST(enumFile)
 
 					// Add all enum definitions to our lookup table
-					Object.assign(allDefines, enumData.defines);
+					Object.assign(allDefines, enumData.defines)
 
 					// Handle different import styles
 					for (const specifier of node.specifiers) {
 						if (specifier.type === 'ImportNamespaceSpecifier') {
 							// import * as Lib from './lib'
-							const alias = specifier.local.name;
+							const alias = specifier.local.name
 
 							// Transform enum references: alias.EnumName.Key -> "value"
 							for (const decl of enumData.declarations) {
@@ -274,16 +307,16 @@ export const transformConstEnum = (filePath: string, code: string): { code: stri
 									const pattern = new RegExp(
 										`\\b${alias}\\.${decl.id}\\.${member.name}\\b`,
 										'g',
-									);
+									)
 
-									let match;
+									let match
 									while ((match = pattern.exec(code)) !== null) {
-										const start = match.index;
-										const end = start + match[0].length;
-										const replacement = JSON.stringify(member.value);
+										const start = match.index
+										const end = start + match[0].length
+										const replacement = JSON.stringify(member.value)
 
-										s.update(start, end, `${replacement} /* ${match[0]} */`);
-										transformed = true;
+										s.update(start, end, `${replacement} /* ${match[0]} */`)
+										transformed = true
 									}
 								}
 							}
@@ -291,26 +324,26 @@ export const transformConstEnum = (filePath: string, code: string): { code: stri
 							// import { SomeEnum } from './lib'
 							const importedName = specifier.imported.type === 'Identifier'
 								? specifier.imported.name
-								: specifier.imported.value;
-							const localName = specifier.local.name;
+								: specifier.imported.value
+							const localName = specifier.local.name
 
 							// Find matching enum declaration
-							const enumDecl = enumData.declarations.find(d => d.id === importedName);
+							const enumDecl = enumData.declarations.find(d => d.id === importedName)
 							if (enumDecl) {
 								for (const member of enumDecl.members) {
 									const pattern = new RegExp(
 										`\\b${localName}\\.${member.name}\\b`,
 										'g',
-									);
+									)
 
-									let match;
+									let match
 									while ((match = pattern.exec(code)) !== null) {
-										const start = match.index;
-										const end = start + match[0].length;
-										const replacement = JSON.stringify(member.value);
+										const start = match.index
+										const end = start + match[0].length
+										const replacement = JSON.stringify(member.value)
 
-										s.update(start, end, `${replacement} /* ${match[0]} */`);
-										transformed = true;
+										s.update(start, end, `${replacement} /* ${match[0]} */`)
+										transformed = true
 									}
 								}
 							}
@@ -321,7 +354,7 @@ export const transformConstEnum = (filePath: string, code: string): { code: stri
 		}
 
 		if (!transformed) {
-			return undefined;
+			return undefined
 		}
 
 		return {
@@ -331,10 +364,10 @@ export const transformConstEnum = (filePath: string, code: string): { code: stri
 				file: path.basename(filePath),
 				includeContent: true,
 			}),
-		};
+		}
 	} catch (error) {
 		// Silently handle transformation errors - don't output to console as it pollutes test output
 		// The error is expected for files with syntax errors like 'broken-syntax.ts'
-		return undefined;
+		return undefined
 	}
-};
+}
