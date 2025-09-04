@@ -32,3 +32,4 @@ link.config.json
 docs/.vitepress/cache
 /debug-ts-lib
 /debug-node-app
+/debug-types

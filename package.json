@@ -70,7 +70,8 @@
 		"node": ">=18.0.0"
 	},
 	"dependencies": {
-		"esbuild": "~0.25.0",
+		"ast-kit": "^2.1.2",
+		"esbuild": "~0.25.9",
 		"get-tsconfig": "^4.7.5"
 	},
 	"optionalDependencies": {
@@ -78,6 +79,7 @@
 	},
 	"devDependencies": {
 		"@ampproject/remapping": "^2.3.0",
+		"@babel/types": "^7.28.2",
 		"@types/cross-spawn": "^6.0.6",
 		"@types/node": "^22.15.29",
 		"@types/split2": "^4.2.3",

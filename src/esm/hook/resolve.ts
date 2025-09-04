@@ -1,73 +1,73 @@
-import path from 'node:path'
-import { pathToFileURL, fileURLToPath } from 'node:url'
+import path from 'node:path';
+import { pathToFileURL, fileURLToPath } from 'node:url';
 import type {
 	ResolveHook,
 	ResolveHookContext,
-} from 'node:module'
-import type { PackageJson } from 'type-fest'
-import { readJsonFile } from '../../utils/read-json-file.js'
-import { mapTsExtensions } from '../../utils/map-ts-extensions.js'
-import type { NodeError } from '../../types.js'
-import { tsconfigPathsMatcher, allowJs, dynamicPathsMatcher } from '../../utils/tsconfig.js'
+} from 'node:module';
+import type { PackageJson } from 'type-fest';
+import { readJsonFile } from '../../utils/read-json-file.js';
+import { mapTsExtensions } from '../../utils/map-ts-extensions.js';
+import type { NodeError } from '../../types.js';
+import { tsconfigPathsMatcher, allowJs, dynamicPathsMatcher } from '../../utils/tsconfig.js';
 import {
 	requestAcceptsQuery,
 	fileUrlPrefix,
 	tsExtensionsPattern,
 	isDirectoryPattern,
 	isRelativePath,
-} from '../../utils/path-utils.js'
-import type { TsxRequest } from '../types.js'
-import { logEsm as log, debugEnabled } from '../../utils/debug.js'
+} from '../../utils/path-utils.js';
+import type { TsxRequest } from '../types.js';
+import { logEsm as log, debugEnabled } from '../../utils/debug.js';
 import {
 	getFormatFromFileUrl,
 	namespaceQuery,
 	getNamespace,
-} from './utils.js'
-import { data } from './initialize.js'
+} from './utils.js';
+import { data } from './initialize.js';
 
-type NextResolve = Parameters<ResolveHook>[2]
+type NextResolve = Parameters<ResolveHook>[2];
 
 const getMissingPathFromNotFound = (
 	nodeError: NodeError,
 ) => {
 	if (nodeError.url) {
-		return nodeError.url
+		return nodeError.url;
 	}
 
-	const isExportPath = nodeError.message.match(/^Cannot find module '([^']+)'/)
+	const isExportPath = nodeError.message.match(/^Cannot find module '([^']+)'/);
 	if (isExportPath) {
-		const [, exportPath] = isExportPath
-		return exportPath
+		const [, exportPath] = isExportPath;
+		return exportPath;
 	}
 
-	const isPackagePath = nodeError.message.match(/^Cannot find package '([^']+)'/)
+	const isPackagePath = nodeError.message.match(/^Cannot find package '([^']+)'/);
 	if (isPackagePath) {
-		const [, packagePath] = isPackagePath
+		const [, packagePath] = isPackagePath;
 		if (!path.isAbsolute(packagePath)) {
-			return
+			return;
 		}
 
-		const packageUrl = pathToFileURL(packagePath)
+		const packageUrl = pathToFileURL(packagePath);
 
 		// Node v20.0.0 logs the package directory
 		// Slash check / works on Windows as well because it's a path URL
 		if (packageUrl.pathname.endsWith('/')) {
-			packageUrl.pathname += 'package.json'
+			packageUrl.pathname += 'package.json';
 		}
 
 		// Node v21+ logs the package package.json path
 		if (packageUrl.pathname.endsWith('/package.json')) {
 			// packageJsonUrl.pathname += '/package.json';
-			const packageJson = readJsonFile<PackageJson>(packageUrl)
+			const packageJson = readJsonFile<PackageJson>(packageUrl);
 			if (packageJson?.main) {
-				return new URL(packageJson.main, packageUrl).toString()
+				return new URL(packageJson.main, packageUrl).toString();
 			}
 		} else {
 			// Node v22.6.0 logs the entry path so we don't need to look it up from package.json
-			return packageUrl.toString()
+			return packageUrl.toString();
 		}
 	}
-}
+};
 
 const resolveExtensions = async (
 	url: string,
@@ -75,38 +75,38 @@ const resolveExtensions = async (
 	nextResolve: NextResolve,
 	throwError?: boolean,
 ) => {
-	const tryPaths = mapTsExtensions(url)
+	const tryPaths = mapTsExtensions(url);
 	log(3, 'resolveExtensions', {
 		url,
 		context,
 		throwError,
 		tryPaths,
-	})
+	});
 	if (!tryPaths) {
-		return
+		return;
 	}
 
-	let caughtError: unknown
+	let caughtError: unknown;
 	for (const tsPath of tryPaths) {
 		try {
-			return await nextResolve(tsPath, context)
+			return await nextResolve(tsPath, context);
 		} catch (error) {
-			const { code } = error as NodeError
+			const { code } = error as NodeError;
 			if (
 				code !== 'ERR_MODULE_NOT_FOUND'
 				&& code !== 'ERR_PACKAGE_PATH_NOT_EXPORTED'
 			) {
-				throw error
+				throw error;
 			}
 
-			caughtError = error
+			caughtError = error;
 		}
 	}
 
 	if (throwError) {
-		throw caughtError
+		throw caughtError;
 	}
-}
+};
 
 const resolveBase: ResolveHook = async (
 	specifier,
@@ -120,7 +120,7 @@ const resolveBase: ResolveHook = async (
 		isRelativePath: isRelativePath(specifier),
 		tsExtensionsPattern: tsExtensionsPattern.test(context.parentURL!),
 		allowJs,
-	})
+	});
 
 	/**
 	 * Only prioritize TypeScript extensions for file paths (no dependencies)
@@ -138,42 +138,42 @@ const resolveBase: ResolveHook = async (
 			|| allowJs
 		)
 	) {
-		const resolved = await resolveExtensions(specifier, context, nextResolve)
+		const resolved = await resolveExtensions(specifier, context, nextResolve);
 		log(3, 'resolveBase resolved', {
 			specifier,
 			context,
 			resolved,
-		})
+		});
 		if (resolved) {
-			return resolved
+			return resolved;
 		}
 	}
 
 	try {
-		return await nextResolve(specifier, context)
+		return await nextResolve(specifier, context);
 	} catch (error) {
 		log(3, 'resolveBase error', {
 			specifier,
 			context,
 			error,
-		})
+		});
 		if (error instanceof Error) {
-			const nodeError = error as NodeError
+			const nodeError = error as NodeError;
 			if (nodeError.code === 'ERR_MODULE_NOT_FOUND') {
 				// Resolving .js -> .ts in exports/imports map
-				const errorPath = getMissingPathFromNotFound(nodeError)
+				const errorPath = getMissingPathFromNotFound(nodeError);
 				if (errorPath) {
-					const resolved = await resolveExtensions(errorPath, context, nextResolve)
+					const resolved = await resolveExtensions(errorPath, context, nextResolve);
 					if (resolved) {
-						return resolved
+						return resolved;
 					}
 				}
 			}
 		}
 
-		throw error
+		throw error;
 	}
-}
+};
 
 const resolveDirectory: ResolveHook = async (
 	specifier,
@@ -184,37 +184,37 @@ const resolveDirectory: ResolveHook = async (
 		specifier,
 		context,
 		isDirectory: isDirectoryPattern.test(specifier),
-	})
+	});
 	if (specifier === '.' || specifier === '..' || specifier.endsWith('/..')) {
-		specifier += '/'
+		specifier += '/';
 	}
 
 	if (isDirectoryPattern.test(specifier)) {
-		const urlParsed = new URL(specifier, context.parentURL)
+		const urlParsed = new URL(specifier, context.parentURL);
 
 		// If directory, can be index.js, index.ts, etc.
-		urlParsed.pathname = path.join(urlParsed.pathname, 'index')
+		urlParsed.pathname = path.join(urlParsed.pathname, 'index');
 
 		return (await resolveExtensions(
 			urlParsed.toString(),
 			context,
 			nextResolve,
 			true,
-		))!
+		))!;
 	}
 
 	try {
-		return await resolveBase(specifier, context, nextResolve)
+		return await resolveBase(specifier, context, nextResolve);
 	} catch (error) {
 		if (error instanceof Error) {
 			log(3, 'resolveDirectory error', {
 				specifier,
 				context,
 				error,
-			})
-			const nodeError = error as NodeError
+			});
+			const nodeError = error as NodeError;
 			if (nodeError.code === 'ERR_UNSUPPORTED_DIR_IMPORT') {
-				const errorPath = getMissingPathFromNotFound(nodeError)
+				const errorPath = getMissingPathFromNotFound(nodeError);
 				if (errorPath) {
 					try {
 						return (await resolveExtensions(
@@ -222,21 +222,21 @@ const resolveDirectory: ResolveHook = async (
 							context,
 							nextResolve,
 							true,
-						))!
+						))!;
 					} catch (_error) {
-						const __error = _error as Error
-						const { message } = __error
-						__error.message = __error.message.replace(`${'/index'.replace('/', path.sep)}'`, "'")
-						__error.stack = __error.stack!.replace(message, __error.message)
-						throw __error
+						const __error = _error as Error;
+						const { message } = __error;
+						__error.message = __error.message.replace(`${'/index'.replace('/', path.sep)}'`, "'");
+						__error.stack = __error.stack!.replace(message, __error.message);
+						throw __error;
 					}
 				}
 			}
 		}
 
-		throw error
+		throw error;
 	}
-}
+};
 
 const resolveTsPaths: ResolveHook = async (
 	specifier,
@@ -249,7 +249,7 @@ const resolveTsPaths: ResolveHook = async (
 		requestAcceptsQuery: requestAcceptsQuery(specifier),
 		tsconfigPathsMatcher,
 		fromNodeModules: context.parentURL?.includes('/node_modules/'),
-	})
+	});
 
 	if (
 		// Bare specifier
@@ -258,18 +258,21 @@ const resolveTsPaths: ResolveHook = async (
 		&& (tsconfigPathsMatcher || dynamicPathsMatcher)
 		&& !context.parentURL?.includes('/node_modules/')
 	) {
-		let possiblePaths: string[] = []
+		let possiblePaths: string[] = [];
 
 		// Try to get parent file path for dynamic resolution
-		let parentFilePath: string | undefined
+		let parentFilePath: string | undefined;
 		if (context.parentURL) {
 			try {
 				// Convert URL to file path
 				if (context.parentURL.startsWith('file:')) {
-					parentFilePath = fileURLToPath(context.parentURL)
+					parentFilePath = fileURLToPath(context.parentURL);
 				}
 			} catch (error) {
-				log(2, 'resolveTsPaths error converting parentURL', { parentURL: context.parentURL, error })
+				log(2, 'resolveTsPaths error converting parentURL', {
+					parentURL: context.parentURL,
+					error,
+				});
 			}
 		}
 
@@ -277,29 +280,43 @@ const resolveTsPaths: ResolveHook = async (
 			parentURL: context.parentURL,
 			parentFilePath,
 			specifier,
-		})
+		});
 
 		// Try dynamic paths matcher first if we have a parent context
 		if (parentFilePath) {
 			try {
-				possiblePaths = dynamicPathsMatcher(specifier, parentFilePath)
-				log(3, 'resolveTsPaths dynamic result', { possiblePaths, specifier, parentFilePath })
+				possiblePaths = dynamicPathsMatcher(specifier, parentFilePath);
+				log(3, 'resolveTsPaths dynamic result', {
+					possiblePaths,
+					specifier,
+					parentFilePath,
+				});
 			} catch (error) {
-				log(2, 'resolveTsPaths dynamic matcher error', { error, specifier, parentFilePath })
+				log(2, 'resolveTsPaths dynamic matcher error', {
+					error,
+					specifier,
+					parentFilePath,
+				});
 			}
 		}
 
 		// Fallback to static matcher if dynamic failed or no parent context
 		if (possiblePaths.length === 0 && tsconfigPathsMatcher) {
 			try {
-				possiblePaths = tsconfigPathsMatcher(specifier)
-				log(3, 'resolveTsPaths static fallback', { possiblePaths, specifier })
+				possiblePaths = tsconfigPathsMatcher(specifier);
+				log(3, 'resolveTsPaths static fallback', {
+					possiblePaths,
+					specifier,
+				});
 			} catch (error) {
-				log(2, 'resolveTsPaths static matcher error', { error, specifier })
+				log(2, 'resolveTsPaths static matcher error', {
+					error,
+					specifier,
+				});
 			}
 		}
 
-		log(3, 'resolveTsPaths final paths', { possiblePaths })
+		log(3, 'resolveTsPaths final paths', { possiblePaths });
 
 		for (const possiblePath of possiblePaths) {
 			try {
@@ -307,17 +324,20 @@ const resolveTsPaths: ResolveHook = async (
 					pathToFileURL(possiblePath).toString(),
 					context,
 					nextResolve,
-				)
+				);
 			} catch (error) {
-				log(3, 'resolveTsPaths path failed', { possiblePath, error })
+				log(3, 'resolveTsPaths path failed', {
+					possiblePath,
+					error,
+				});
 			}
 		}
 	}
 
-	return resolveDirectory(specifier, context, nextResolve)
-}
+	return resolveDirectory(specifier, context, nextResolve);
+};
 
-const tsxProtocol = 'tsx://'
+const tsxProtocol = 'tsx://';
 
 // eslint-disable-next-line import-x/no-mutable-exports
 let resolve: ResolveHook = async (
@@ -326,52 +346,52 @@ let resolve: ResolveHook = async (
 	nextResolve,
 ) => {
 	if (!data.active || specifier.startsWith('node:')) {
-		return nextResolve(specifier, context)
+		return nextResolve(specifier, context);
 	}
 
 	let requestNamespace = getNamespace(specifier) ?? (
 		// Inherit namespace from parent
 		context.parentURL && getNamespace(context.parentURL)
-	)
+	);
 
 	if (data.namespace) {
-		let tsImportRequest: TsxRequest | undefined
+		let tsImportRequest: TsxRequest | undefined;
 
 		// Initial request from tsImport()
 		if (specifier.startsWith(tsxProtocol)) {
 			try {
-				tsImportRequest = JSON.parse(specifier.slice(tsxProtocol.length))
-			} catch { }
+				tsImportRequest = JSON.parse(specifier.slice(tsxProtocol.length));
+			} catch {}
 
 			if (tsImportRequest?.namespace) {
-				requestNamespace = tsImportRequest.namespace
+				requestNamespace = tsImportRequest.namespace;
 			}
 		}
 
 		if (data.namespace !== requestNamespace) {
-			return nextResolve(specifier, context)
+			return nextResolve(specifier, context);
 		}
 
 		if (tsImportRequest) {
-			specifier = tsImportRequest.specifier
-			context.parentURL = tsImportRequest.parentURL
+			specifier = tsImportRequest.specifier;
+			context.parentURL = tsImportRequest.parentURL;
 		}
 	}
 
-	const [cleanSpecifier, query] = specifier.split('?')
+	const [cleanSpecifier, query] = specifier.split('?');
 
 	const resolved = await resolveTsPaths(
 		cleanSpecifier,
 		context,
 		nextResolve,
-	)
+	);
 
 	log(2, 'nextResolve', {
 		resolved,
-	})
+	});
 
 	if (resolved.format === 'builtin') {
-		return resolved
+		return resolved;
 	}
 
 	// For TypeScript extensions that Node can't detect the format of
@@ -384,15 +404,15 @@ let resolve: ResolveHook = async (
 		// Filter out data: (sourcemaps)
 		&& resolved.url.startsWith(fileUrlPrefix)
 	) {
-		resolved.format = await getFormatFromFileUrl(resolved.url)
+		resolved.format = await getFormatFromFileUrl(resolved.url);
 		log(2, 'getFormatFromFileUrl', {
 			resolved,
 			format: resolved.format,
-		})
+		});
 	}
 
 	if (query) {
-		resolved.url += `?${query}`
+		resolved.url += `?${query}`;
 	}
 
 	// Inherit namespace
@@ -400,14 +420,14 @@ let resolve: ResolveHook = async (
 		requestNamespace
 		&& !resolved.url.includes(namespaceQuery)
 	) {
-		resolved.url += (resolved.url.includes('?') ? '&' : '?') + namespaceQuery + requestNamespace
+		resolved.url += (resolved.url.includes('?') ? '&' : '?') + namespaceQuery + requestNamespace;
 	}
 
-	return resolved
-}
+	return resolved;
+};
 
 if (debugEnabled) {
-	const originalResolve = resolve
+	const originalResolve = resolve;
 	resolve = async (
 		specifier,
 		context,
@@ -416,15 +436,15 @@ if (debugEnabled) {
 		log(2, 'resolve', {
 			specifier,
 			context,
-		})
-		const result = await originalResolve(specifier, context, nextResolve)
+		});
+		const result = await originalResolve(specifier, context, nextResolve);
 		log(1, 'resolved', {
 			specifier,
 			context,
 			result,
-		})
-		return result
-	}
+		});
+		return result;
+	};
 }
 
-export { resolve }
+export { resolve };

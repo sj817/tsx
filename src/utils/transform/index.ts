@@ -11,6 +11,7 @@ import {
 	version as transformDynamicImportVersion,
 	transformDynamicImport,
 } from './transform-dynamic-import.js';
+import { transformConstEnum } from './const-enum-transformer.js';
 import cache from './cache.js';
 import {
 	applyTransformersSync,
@@ -128,6 +129,7 @@ export const transform = async (
 		JSON.stringify(esbuildOptions),
 		esbuildVersion,
 		transformDynamicImportVersion,
+		'const-enum-v1', // Force cache invalidation
 	].join('-'));
 	let transformed = cache.get(hash);
 
@@ -136,6 +138,8 @@ export const transform = async (
 			filePath,
 			code,
 			[
+				// Apply const enum transformation before esbuild
+				async (_filePath, _code) => transformConstEnum(_filePath, _code),
 				async (_filePath, _code) => {
 					const patchResult = patchOptions(esbuildOptions);
 					let result;
