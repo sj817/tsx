@@ -1,8 +1,13 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import MagicString from 'magic-string'
-import { babelParse } from 'ast-kit'
-import type { Expression, PrivateName } from '@babel/types'
+import { parseSync } from 'oxc-parser'
+import type {
+	Expression,
+	PrivateIdentifier,
+	NumericLiteral,
+	StringLiteral,
+} from 'oxc-parser'
 
 // Cache for parsed const enums to avoid re-parsing the same .d.ts files
 const constEnumCache = new Map<string, EnumData>()
@@ -89,7 +94,11 @@ const parseConstEnumsFromAST = (filePath: string): EnumData => {
 			return result
 		}
 
-		const ast = babelParse(content, lang)
+		const parseResult = parseSync(filePath, content, {
+			lang: lang === 'dts' ? 'ts' : lang as 'js' | 'jsx' | 'ts' | 'tsx',
+			astType: isTs(lang) ? 'ts' : 'js'
+		})
+		const ast = parseResult.program
 		const declarations: EnumDeclaration[] = []
 		const defines: { [id_key: `${string}.${string}`]: string } = {}
 
@@ -112,8 +121,9 @@ const parseConstEnumsFromAST = (filePath: string): EnumData => {
 				let lastInitialized: string | number | undefined
 				const members: EnumMember[] = []
 
-				for (const e of decl.members) {
-					const key = e.id.type === 'Identifier' ? e.id.name : String(e.id.value)
+				for (const e of decl.body.members) {
+					const key = e.id.type === 'Identifier' ? e.id.name :
+						(e.id.type === 'Literal' ? String((e.id as StringLiteral).value) : '')
 					const fullKey = `${id}.${key}` as const
 
 					const saveValue = (value: string | number) => {
@@ -129,16 +139,17 @@ const parseConstEnumsFromAST = (filePath: string): EnumData => {
 						let value: string | number
 
 						switch (init.type) {
-							case 'StringLiteral':
-							case 'NumericLiteral': {
-								value = init.value
+							case 'Literal': {
+								const literal = init as StringLiteral | NumericLiteral
+								value = literal.value
 
 								break
 							}
 							case 'BinaryExpression': {
-								const resolveValue = (node: Expression | PrivateName) => {
-									if (node.type === 'NumericLiteral' || node.type === 'StringLiteral') {
-										return node.value
+								const resolveValue = (node: Expression | PrivateIdentifier) => {
+									if (node.type === 'Literal') {
+										const literal = node as StringLiteral | NumericLiteral
+										return literal.value
 									} if (node.type === 'MemberExpression') {
 										const exp = content.slice(node.start!, node.end!) as `${string}.${string}`
 										if (!(exp in defines)) {
@@ -157,8 +168,9 @@ const parseConstEnumsFromAST = (filePath: string): EnumData => {
 								break
 							}
 							case 'UnaryExpression': {
-								if (init.argument.type === 'StringLiteral' || init.argument.type === 'NumericLiteral') {
-									const exp = `${init.operator}${init.argument.value}`
+								if (init.argument.type === 'Literal') {
+									const literal = init.argument as StringLiteral | NumericLiteral
+									const exp = `${init.operator}${literal.value}`
 									value = evaluate(exp)
 								} else {
 									throw new Error(`Unsupported unary argument type: ${init.argument.type}`)
@@ -277,7 +289,11 @@ export const transformConstEnum = (filePath: string, code: string): {
 
 		// Parse the current file to find imports
 		const lang = getLang(filePath)
-		const ast = babelParse(code, lang)
+		const parseResult = parseSync(filePath, code, {
+			lang: lang === 'dts' ? 'ts' : lang as 'js' | 'jsx' | 'ts' | 'tsx',
+			astType: isTs(lang) ? 'ts' : 'js'
+		})
+		const ast = parseResult.program
 
 		// Collect all const enum definitions and their values
 		const allDefines: { [key: string]: string } = {}
