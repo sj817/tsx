@@ -159,7 +159,7 @@ export default testSuite(({ describe }, node: NodeApis) => {
 					],
 				});
 
-				expect(stdout).toBe('js working\nts working');
+				expect(stdout).toBe('js working\njs working\njs working\nts working');
 			});
 
 			describe('register', ({ test }) => {
