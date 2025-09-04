@@ -14,6 +14,13 @@ TypeScript Execute (tsx): The easiest way to run TypeScript in Node.js
 <a href="https://tsx.is">Documentation</a>&nbsp;&nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp;&nbsp;<a href="https://tsx.is/getting-started">Getting started →</a>
 </p>
 
+## 🚀 Features
+
+- ✅ **Enhanced TypeScript Support**: Full support for `const enum` compilation
+- ✅ **Monorepo Ready**: Improved dependency resolution that respects tsconfig in monorepo environments
+- ✅ **Zero Configuration**: Works out of the box with TypeScript projects
+- ✅ **Fast Execution**: Optimized for quick TypeScript execution in Node.js
+
 <br>
 
 <p align="center">
