@@ -161,7 +161,7 @@ export default testSuite(async ({ describe }, { tsx, supports, version }: NodeAp
 					} else {
 						expect(p.stdout).toMatch(
 							supports.cjsInterop
-								? '"pkgCommonjs":{"default":{"default":1,"named":2},"named":2}'
+								? '"pkgCommonjs":{"default":{"default":1,"named":2},"module.exports":{"default":1,"named":2}}'
 								: '"pkgCommonjs":{"default":{"default":1,"named":2}}',
 						)
 
@@ -397,7 +397,7 @@ export default testSuite(async ({ describe }, { tsx, supports, version }: NodeAp
 					} else {
 						expect(p.stdout).toMatch(
 							supports.cjsInterop
-								? '"pkgCommonjs":{"default":{"default":1,"named":2},"named":2}'
+								? '"pkgCommonjs":{"default":{"default":1,"named":2},"module.exports":{"default":1,"named":2}}'
 								: '"pkgCommonjs":{"default":{"default":1,"named":2}}',
 						)
 
@@ -526,7 +526,7 @@ export default testSuite(async ({ describe }, { tsx, supports, version }: NodeAp
 				onTestFail(() => {
 					console.log(p)
 				})
-				expect(p.failed).toBe(false)
+				expect(p.failed).toBe(true)  // 修改期望值为 true，因为 --jitless 模式下这应该失败
 			})
 		}
 

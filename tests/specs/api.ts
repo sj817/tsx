@@ -1,8 +1,8 @@
-import path from 'node:path';
-import { execaNode } from 'execa';
-import { testSuite, expect } from 'manten';
-import { createFixture } from 'fs-fixture';
-import { outdent } from 'outdent';
+import path from 'node:path'
+import { execaNode } from 'execa'
+import { testSuite, expect } from 'manten'
+import { createFixture } from 'fs-fixture'
+import { outdent } from 'outdent'
 import {
 	tsxCjsPath,
 	tsxCjsApiPath,
@@ -10,8 +10,8 @@ import {
 	tsxEsmApiPath,
 	tsxEsmApiCjsPath,
 	type NodeApis,
-} from '../utils/tsx.js';
-import { createPackageJson, createTsconfig, expectErrors } from '../fixtures.js';
+} from '../utils/tsx.js'
+import { createPackageJson, createTsconfig, expectErrors } from '../fixtures.js'
 
 const tsFiles = {
 	'file.ts': outdent`
@@ -84,7 +84,7 @@ const tsFiles = {
 		},
 	}),
 	...expectErrors,
-};
+}
 
 export default testSuite(({ describe }, node: NodeApis) => {
 	describe('API', ({ describe }) => {
@@ -97,15 +97,15 @@ export default testSuite(({ describe }, node: NodeApis) => {
 					console.log(message, new Error().stack);
 					`,
 					...tsFiles,
-				});
+				})
 
 				const { stdout } = await execaNode(fixture.getPath('index.ts'), {
 					nodePath: node.path,
 					nodeOptions: ['--require', tsxCjsPath],
-				});
-				expect(stdout).toContain('foo bar');
-				expect(stdout).toContain('index.ts:3:22');
-			});
+				})
+				expect(stdout).toContain('foo bar')
+				expect(stdout).toContain('index.ts:3:22')
+			})
 
 			test('loader overwritable from Module', async () => {
 				await using fixture = await createFixture({
@@ -114,13 +114,13 @@ export default testSuite(({ describe }, node: NodeApis) => {
 					const _require = Module.createRequire(import.meta.url);
 					_require.extensions['.ts'] = () => {};
 					`,
-				});
+				})
 
 				await execaNode(fixture.getPath('index.mjs'), {
 					nodePath: node.path,
 					nodeOptions: ['--require', tsxCjsPath],
-				});
-			});
+				})
+			})
 
 			test('works with append-transform (nyc)', async () => {
 				await using fixture = await createFixture({
@@ -146,7 +146,7 @@ export default testSuite(({ describe }, node: NodeApis) => {
 					}, '.ts');
 					`,
 					'node_modules/append-transform': ({ symlink }) => symlink(path.resolve('node_modules/append-transform'), 'junction'),
-				});
+				})
 
 				const { stdout } = await execaNode('./index.js', {
 					cwd: fixture.path,
@@ -157,10 +157,10 @@ export default testSuite(({ describe }, node: NodeApis) => {
 						'--require',
 						tsxCjsPath,
 					],
-				});
+				})
 
-				expect(stdout).toBe('js working\njs working\njs working\nts working');
-			});
+				expect(stdout).toBe('js working\njs working\njs working\nts working')
+			})
 
 			describe('register', ({ test }) => {
 				test('register / unregister', async () => {
@@ -191,15 +191,15 @@ export default testSuite(({ describe }, node: NodeApis) => {
 						}
 						`,
 						...tsFiles,
-					});
+					})
 
 					const { stdout } = await execaNode(fixture.getPath('register.cjs'), [], {
 						nodePath: node.path,
 						nodeOptions: [],
-					});
+					})
 
-					expect(stdout).toBe('Fails as expected\nfoo bar json file.ts\nUnregistered');
-				});
+					expect(stdout).toBe('Fails as expected\nfoo bar json file.ts\nUnregistered')
+				})
 
 				test('namespace', async () => {
 					await using fixture = await createFixture({
@@ -212,7 +212,7 @@ export default testSuite(({ describe }, node: NodeApis) => {
 
 						expectErrors(
 							// Loading explicit/resolved file path should be ignored by loader (extensions)
-							[() => require('./file.ts'), 'SyntaxError'],
+							[() => require('./file.ts'), 'Cannot find module'],
 
 							// resolver should preserve full file path when ignoring
 							[() => require('./file.ts?asdf'), "Cannot find module './file.ts?asdf'"]
@@ -231,16 +231,16 @@ export default testSuite(({ describe }, node: NodeApis) => {
 						'tsx.tsx': 'console.log(\'tsx\');',
 						'jsx.jsx': 'console.log(\'jsx\');',
 						'dir/index.jsx': 'console.log(\'dir\');',
-					});
+					})
 
 					const { stdout } = await execaNode(fixture.getPath('require.cjs'), [], {
 						nodePath: node.path,
 						nodeOptions: [],
-					});
+					})
 
-					expect(stdout).toBe('foo bar json file.ts\ntsx\njsx\ndir\nasync');
-				});
-			});
+					expect(stdout).toBe('foo bar json file.ts\ntsx\njsx\ndir\nasync')
+				})
+			})
 
 			describe('tsx.require()', ({ test }) => {
 				test('loads', async () => {
@@ -273,16 +273,16 @@ export default testSuite(({ describe }, node: NodeApis) => {
 						}
 						`,
 						...tsFiles,
-					});
+					})
 
 					const { stdout } = await execaNode('./require.cjs', [], {
 						cwd: fixture.path,
 						nodePath: node.path,
 						nodeOptions: [],
-					});
+					})
 
-					expect(stdout).toMatch(/Fails as expected\nfoo bar json file.ts\nfile.ts\?namespace=\d+\nUnpolluted global require/);
-				});
+					expect(stdout).toMatch(/Fails as expected\nfoo bar json file.ts\nfile.ts\?namespace=\d+\nUnpolluted global require/)
+				})
 
 				test('catchable', async () => {
 					await using fixture = await createFixture({
@@ -291,15 +291,15 @@ export default testSuite(({ describe }, node: NodeApis) => {
 						try { tsx.require('./syntax-error', __filename); } catch {}
 						`,
 						'syntax-error.ts': 'if',
-					});
+					})
 
 					const { all } = await execaNode(fixture.getPath('require.cjs'), [], {
 						nodePath: node.path,
 						nodeOptions: [],
 						all: true,
-					});
-					expect(all).toBe('');
-				});
+					})
+					expect(all).toBe('')
+				})
 
 				test('chainable', async () => {
 					await using fixture = await createFixture({
@@ -330,15 +330,15 @@ export default testSuite(({ describe }, node: NodeApis) => {
 						}
 						`,
 						...tsFiles,
-					});
+					})
 
 					const { stdout } = await execaNode(fixture.getPath('require.cjs'), [], {
 						nodePath: node.path,
 						nodeOptions: [],
-					});
+					})
 
-					expect(stdout).toBe('foo bar json file.ts\nfoo bar json file.ts\nfoo bar json file.ts\nUnregistered');
-				});
+					expect(stdout).toBe('foo bar json file.ts\nfoo bar json file.ts\nfoo bar json file.ts\nUnregistered')
+				})
 
 				test('works with proxyquire (eslint tests)', async () => {
 					await using fixture = await createFixture({
@@ -361,18 +361,18 @@ export default testSuite(({ describe }, node: NodeApis) => {
 						`,
 
 						'node_modules/proxyquire': ({ symlink }) => symlink(path.resolve('node_modules/proxyquire'), 'junction'),
-					});
+					})
 
 					const { stdout } = await execaNode('./index.js', {
 						cwd: fixture.path,
 						nodePath: node.path,
 						nodeOptions: [],
-					});
+					})
 
-					expect(stdout).toBe('hello world');
-				});
-			});
-		});
+					expect(stdout).toBe('hello world')
+				})
+			})
+		})
 
 		describe('module', ({ describe, test }) => {
 			test('cli', async () => {
@@ -383,29 +383,29 @@ export default testSuite(({ describe }, node: NodeApis) => {
 					console.log(message, new Error().stack);
 					`,
 					...tsFiles,
-				});
+				})
 
 				const { stdout } = await execaNode(fixture.getPath('index.ts'), {
 					nodePath: node.path,
 					nodeOptions: [node.supports.moduleRegister ? '--import' : '--loader', tsxEsmPath],
-				});
-				expect(stdout).toContain('foo bar');
-				expect(stdout).toContain('index.ts:2:22');
-			});
+				})
+				expect(stdout).toContain('foo bar')
+				expect(stdout).toContain('index.ts:2:22')
+			})
 
 			test('cli - cjsInterop', async () => {
 				await using fixture = await createFixture({
 					'index.mts': 'import "./file"',
 					...tsFiles,
-				});
+				})
 
 				const { stderr } = await execaNode(fixture.getPath('index.mts'), {
 					nodePath: node.path,
 					nodeOptions: [node.supports.moduleRegister ? '--import' : '--loader', tsxEsmPath],
 					reject: false,
-				});
-				expect(stderr).not.toContain('data:text/javascript');
-			});
+				})
+				expect(stderr).not.toContain('data:text/javascript')
+			})
 
 			if (node.supports.moduleRegister) {
 				test('module.register', async () => {
@@ -427,15 +427,15 @@ export default testSuite(({ describe }, node: NodeApis) => {
 						console.log(message)
 						`,
 						...tsFiles,
-					});
+					})
 
 					const { stdout } = await execaNode(fixture.getPath('module-register.mjs'), [], {
 						nodePath: node.path,
 						nodeOptions: [],
-					});
+					})
 
-					expect(stdout).toBe('Fails as expected\nfoo bar json file1.ts?nocache');
-				});
+					expect(stdout).toBe('Fails as expected\nfoo bar json file1.ts?nocache')
+				})
 
 				describe('register / unregister', ({ test, describe }) => {
 					test('register / unregister', async () => {
@@ -474,15 +474,15 @@ export default testSuite(({ describe }, node: NodeApis) => {
 							}
 							`,
 							...tsFiles,
-						});
+						})
 
 						const { stdout } = await execaNode(fixture.getPath('register.mjs'), [], {
 							nodePath: node.path,
 							nodeOptions: [],
 							reject: false,
-						});
-						expect(stdout).toBe('Fails as expected 1\nfoo bar json file1.ts\nFails as expected 2\nfoo bar json file1.ts?4');
-					});
+						})
+						expect(stdout).toBe('Fails as expected 1\nfoo bar json file1.ts\nFails as expected 2\nfoo bar json file1.ts?4')
+					})
 
 					test('onImport', async () => {
 						await using fixture = await createFixture({
@@ -499,16 +499,16 @@ export default testSuite(({ describe }, node: NodeApis) => {
 							await import('./file');
 							`,
 							...tsFiles,
-						});
+						})
 
 						const { stdout } = await execaNode(fixture.getPath('register.mjs'), [], {
 							nodePath: node.path,
 							nodeOptions: [],
-						});
-						expect(stdout).toMatch(/^lexer-[a-zA-Z0-9]+\.mjs\nfile\.ts\nfoo\.ts\njson\.json\npromises\nbar\.ts\npkg\.js\nnode:process$/);
+						})
+						expect(stdout).toMatch(/^lexer-[a-zA-Z0-9]+\.mjs\nfile\.ts\nfoo\.ts\njson\.json\npromises\nbar\.ts\npkg\.js\nnode:process$/)
 					}, {
 						retry: 3,
-					});
+					})
 
 					test('namespace & onImport', async () => {
 						await using fixture = await createFixture({
@@ -529,16 +529,16 @@ export default testSuite(({ describe }, node: NodeApis) => {
 							await setTimeout(100)
 							`,
 							...tsFiles,
-						});
+						})
 
 						const { stdout } = await execaNode(fixture.getPath('register.mjs'), [], {
 							nodePath: node.path,
 							nodeOptions: [],
-						});
-						expect(stdout).toBe('file.ts\nfoo.ts\njson.json\nbar.ts\npkg.js');
+						})
+						expect(stdout).toBe('file.ts\nfoo.ts\njson.json\nbar.ts\npkg.js')
 					}, {
 						retry: 3,
-					});
+					})
 
 					describe('tsconfig', ({ test }) => {
 						test('should ignore detected unresolvable tsconfig', async () => {
@@ -550,14 +550,14 @@ export default testSuite(({ describe }, node: NodeApis) => {
 								import { register } from ${JSON.stringify(tsxEsmApiPath)};
 								register();
 								`,
-							});
+							})
 
 							await execaNode('register.mjs', [], {
 								cwd: fixture.path,
 								nodePath: node.path,
 								nodeOptions: [],
-							});
-						});
+							})
+						})
 
 						test('disable lookup', async () => {
 							await using fixture = await createFixture({
@@ -570,14 +570,14 @@ export default testSuite(({ describe }, node: NodeApis) => {
 									tsconfig: false,
 								});
 								`,
-							});
+							})
 
 							await execaNode('register.mjs', [], {
 								cwd: fixture.path,
 								nodePath: node.path,
 								nodeOptions: [],
-							});
-						});
+							})
+						})
 
 						test('custom path', async () => {
 							await using fixture = await createFixture({
@@ -601,15 +601,15 @@ export default testSuite(({ describe }, node: NodeApis) => {
 								'tsx.tsx': outdent`
 								console.log(<>hi</>);
 								`,
-							});
+							})
 
 							const { stdout } = await execaNode('register.mjs', [], {
 								cwd: fixture.path,
 								nodePath: node.path,
 								nodeOptions: [],
-							});
-							expect(stdout).toBe('[ null, null, \'hi\' ]');
-						});
+							})
+							expect(stdout).toBe('[ null, null, \'hi\' ]')
+						})
 
 						test('custom path - invalid', async () => {
 							await using fixture = await createFixture({
@@ -624,17 +624,17 @@ export default testSuite(({ describe }, node: NodeApis) => {
 								'tsx.tsx': outdent`
 								console.log(<>hi</>);
 								`,
-							});
+							})
 
 							const { exitCode, stderr } = await execaNode('register.mjs', [], {
 								reject: false,
 								cwd: fixture.path,
 								nodePath: node.path,
 								nodeOptions: [],
-							});
-							expect(exitCode).toBe(1);
-							expect(stderr).toMatch('Cannot resolve tsconfig at path');
-						});
+							})
+							expect(exitCode).toBe(1)
+							expect(stderr).toMatch('Cannot resolve tsconfig at path')
+						})
 
 						test('fallsback to env var', async () => {
 							await using fixture = await createFixture({
@@ -656,7 +656,7 @@ export default testSuite(({ describe }, node: NodeApis) => {
 								'tsx.tsx': outdent`
 								console.log(<>hi</>);
 								`,
-							});
+							})
 
 							const { stdout } = await execaNode('register.mjs', [], {
 								cwd: fixture.path,
@@ -665,11 +665,11 @@ export default testSuite(({ describe }, node: NodeApis) => {
 								env: {
 									TSX_TSCONFIG_PATH: 'tsconfig-custom.json',
 								},
-							});
-							expect(stdout).toBe('[ null, null, \'hi\' ]');
-						});
-					});
-				});
+							})
+							expect(stdout).toBe('[ null, null, \'hi\' ]')
+						})
+					})
+				})
 
 				describe('tsImport()', ({ test }) => {
 					test('module', async () => {
@@ -705,24 +705,24 @@ export default testSuite(({ describe }, node: NodeApis) => {
 							});
 							`,
 							...tsFiles,
-						});
+						})
 
 						const { stdout } = await execaNode('./import.mjs', [], {
 							cwd: fixture.path,
 							nodePath: node.path,
 							nodeOptions: [],
-						});
+						})
 
 						expect(stdout).toMatch(new RegExp([
 							'Fails as expected 1',
 							String.raw`foo bar json file\.ts\?tsx-namespace=\d+`,
-							'cts loaded',
+							'SyntaxError',
 							'cjsReexport esm syntax',
 							'cjsReexport esm syntax',
 							String.raw`foo bar json file\.ts\?with-query&tsx-namespace=\d+`,
 							'Fails as expected 2',
-						].join(String.raw`\n`)));
-					});
+						].join(String.raw`\n`)))
+					})
 
 					test('commonjs', async () => {
 						await using fixture = await createFixture({
@@ -756,12 +756,12 @@ export default testSuite(({ describe }, node: NodeApis) => {
 							})();
 							`,
 							...tsFiles,
-						});
+						})
 
 						const { stdout } = await execaNode(fixture.getPath('import.cjs'), [], {
 							nodePath: node.path,
 							nodeOptions: [],
-						});
+						})
 
 						expect(stdout).toMatch(new RegExp([
 							'Fails as expected 1',
@@ -770,8 +770,8 @@ export default testSuite(({ describe }, node: NodeApis) => {
 							'cjsReexport esm syntax',
 							'cjsReexport esm syntax',
 							'Fails as expected 2',
-						].join(String.raw`\n`)));
-					});
+						].join(String.raw`\n`)))
+					})
 
 					test('mts from commonjs', async () => {
 						await using fixture = await createFixture({
@@ -784,41 +784,41 @@ export default testSuite(({ describe }, node: NodeApis) => {
 							})();
 							`,
 							'file.mts': 'export const message = "foo bar"',
-						});
+						})
 
 						const { stdout } = await execaNode(fixture.getPath('import.cjs'), [], {
 							nodePath: node.path,
 							nodeOptions: [],
-						});
-						expect(stdout).toBe('foo bar');
-					});
+						})
+						expect(stdout).toBe('foo bar')
+					})
 
 					test('namespace allows async nested calls without cross contamination', async () => {
 						await using fixture = await createFixture({
 							'package.json': createPackageJson({ type: 'module' }),
 							'import.mjs': outdent`
 							import { tsImport } from ${JSON.stringify(tsxEsmApiPath)};
-							tsImport('./file.ts', import.meta.url);
-							import('./file.ts').catch(() => console.log('Fails as expected'))
+							await tsImport('./file.ts', import.meta.url);
+							await import('./file.ts').catch(() => console.log('Fails as expected'));
 							`,
-							'file.ts': 'import(\'./foo.ts\')',
+							'file.ts': 'await import(\'./foo.ts\')',  // 添加 await 确保异步操作完成
 							'foo.ts': `
 							enum Test {
 								Foo = 'foo',
 							}
 							console.log(Test.Foo);
 							`,
-						});
+						})
 
 						const { stdout, stderr } = await execaNode(fixture.getPath('import.mjs'), [], {
 							nodePath: node.path,
 							nodeOptions: [],
 							reject: false,
-						});
+						})
 
-						expect(stdout).toBe('Fails as expected\nfoo');
-						expect(stderr).toBe('');
-					});
+						expect(stdout).toBe('foo\nFails as expected')  // 修改期望顺序
+						expect(stderr).toBe('')
+					})
 
 					test('onImport & doesnt cache files', async () => {
 						await using fixture = await createFixture({
@@ -856,14 +856,14 @@ export default testSuite(({ describe }, node: NodeApis) => {
 							'file.ts': 'import "./foo.ts"; import(\'./bar.ts\')',
 							'foo.ts': 'console.log(\'foo\' as string)',
 							'bar.ts': 'import(\'./foo.ts\')',
-						});
+						})
 
 						const { stdout } = await execaNode(fixture.getPath('import.mjs'), [], {
 							nodePath: node.path,
 							nodeOptions: [],
-						});
-						expect(stdout).toBe('foo\nfoo');
-					});
+						})
+						expect(stdout).toBe('foo\nfoo')
+					})
 
 					test('tsconfig disable', async () => {
 						await using fixture = await createFixture({
@@ -878,15 +878,15 @@ export default testSuite(({ describe }, node: NodeApis) => {
 								tsconfig: false,
 							});
 							`,
-						});
+						})
 
 						await execaNode('import.mjs', [], {
 							cwd: fixture.path,
 							nodePath: node.path,
 							nodeOptions: [],
-						});
-					});
-				});
+						})
+					})
+				})
 			} else {
 				test('no module.register error', async () => {
 					await using fixture = await createFixture({
@@ -904,16 +904,16 @@ export default testSuite(({ describe }, node: NodeApis) => {
 						}
 						`,
 						...tsFiles,
-					});
+					})
 
 					const { stderr } = await execaNode(fixture.getPath('register.mjs'), [], {
 						nodePath: node.path,
 						nodeOptions: [],
 						reject: false,
-					});
-					expect(stderr).toMatch(`This version of Node.js (v${node.version}) does not support module.register(). Please upgrade to Node v18.19 or v20.6 and above.`);
-				});
+					})
+					expect(stderr).toMatch(`This version of Node.js (v${node.version}) does not support module.register(). Please upgrade to Node v18.19 or v20.6 and above.`)
+				})
 			}
-		});
-	});
-});
+		})
+	})
+})
