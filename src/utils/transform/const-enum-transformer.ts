@@ -233,6 +233,11 @@ export const transformConstEnum = (filePath: string, code: string): { code: stri
 		return undefined;
 	}
 
+	// Quick check: if the file doesn't contain import statements, skip processing
+	if (!code.includes('import ')) {
+		return undefined;
+	}
+
 	try {
 		const s = new MagicString(code);
 		let transformed = false;
