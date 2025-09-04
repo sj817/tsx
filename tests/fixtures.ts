@@ -179,9 +179,9 @@ export const files = {
 		import assert from 'assert';
 		import type {Type} from 'resolved-by-tsc'
 
-		interface Foo {}
+		interface FooInterface {}
 
-		type Foo = number
+		type FooType = number
 
 		declare module 'foo' {}
 

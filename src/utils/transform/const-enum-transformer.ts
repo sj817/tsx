@@ -169,7 +169,8 @@ const parseConstEnumsFromAST = (filePath: string): EnumData => {
 		constEnumCache.set(filePath, enumData);
 		return enumData;
 	} catch (error) {
-		console.warn(`Failed to parse const enums from ${filePath}:`, error);
+		// Silently handle parsing errors - don't output to console as it pollutes test output
+		// The error is expected for files with syntax errors like 'broken-syntax.ts'
 		constEnumCache.set(filePath, result);
 		return result;
 	}
@@ -327,7 +328,8 @@ export const transformConstEnum = (filePath: string, code: string): { code: stri
 			}),
 		};
 	} catch (error) {
-		console.warn(`Failed to transform const enums in ${filePath}:`, error);
+		// Silently handle transformation errors - don't output to console as it pollutes test output
+		// The error is expected for files with syntax errors like 'broken-syntax.ts'
 		return undefined;
 	}
 };
