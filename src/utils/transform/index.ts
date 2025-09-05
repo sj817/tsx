@@ -1,38 +1,38 @@
-import { pathToFileURL, fileURLToPath } from 'node:url';
+import { pathToFileURL, fileURLToPath } from 'node:url'
 import {
 	transform as esbuildTransform,
 	transformSync as esbuildTransformSync,
 	version as esbuildVersion,
 	type TransformOptions,
 	type TransformFailure,
-} from 'esbuild';
-import { sha1 } from '../sha1.js';
+} from 'esbuild'
+import { sha1 } from '../sha1.js'
 import {
 	version as transformDynamicImportVersion,
 	transformDynamicImport,
-} from './transform-dynamic-import.js';
-import { transformConstEnum } from './const-enum-transformer.js';
-import cache from './cache.js';
+} from './transform-dynamic-import.js'
+import cache from './cache.js'
 import {
 	applyTransformersSync,
 	applyTransformers,
 	type Transformed,
-} from './apply-transformers.js';
+} from './apply-transformers.js'
 import {
 	cacheConfig,
 	patchOptions,
-} from './get-esbuild-options.js';
+} from './get-esbuild-options.js'
+import { transformConstEnum } from './const-enum'
 
 const formatEsbuildError = (
 	error: TransformFailure,
 ) => {
-	error.name = 'TransformError';
+	error.name = 'TransformError'
 	// @ts-expect-error deleting non-option property
-	delete error.errors;
+	delete error.errors
 	// @ts-expect-error deleting non-option property
-	delete error.warnings;
-	throw error;
-};
+	delete error.warnings
+	throw error
+}
 
 // Used by cjs-loader
 export const transformSync = (
@@ -40,19 +40,19 @@ export const transformSync = (
 	filePathOrUrl: string,
 	extendOptions?: TransformOptions,
 ): Transformed => {
-	const define: { [key: string]: string } = {};
+	const define: { [key: string]: string } = {}
 
-	let url: string;
-	let filePath: string;
-	let query: string | undefined;
+	let url: string
+	let filePath: string
+	let query: string | undefined
 
 	if (filePathOrUrl.startsWith('file://')) {
-		url = filePathOrUrl;
-		const parsed = new URL(filePathOrUrl);
-		filePath = fileURLToPath(parsed);
+		url = filePathOrUrl
+		const parsed = new URL(filePathOrUrl)
+		filePath = fileURLToPath(parsed)
 	} else {
-		[filePath, query] = filePathOrUrl.split('?');
-		url = pathToFileURL(filePath) + (query ? `?${query}` : '');
+		[filePath, query] = filePathOrUrl.split('?')
+		url = pathToFileURL(filePath) + (query ? `?${query}` : '')
 	}
 
 	if (
@@ -61,7 +61,7 @@ export const transformSync = (
 			|| filePath.endsWith('.cts')
 		)
 	) {
-		define['import.meta.url'] = JSON.stringify(url);
+		define['import.meta.url'] = JSON.stringify(url)
 	}
 
 	const esbuildOptions = {
@@ -76,15 +76,15 @@ export const transformSync = (
 		platform: 'node',
 
 		...extendOptions,
-	} as const;
+	} as const
 
 	const hash = sha1([
 		code,
 		JSON.stringify(esbuildOptions),
 		esbuildVersion,
 		transformDynamicImportVersion,
-	].join('-'));
-	let transformed = cache.get(hash);
+	].join('-'))
+	let transformed = cache.get(hash)
 
 	if (!transformed) {
 		transformed = applyTransformersSync(
@@ -92,24 +92,24 @@ export const transformSync = (
 			code,
 			[
 				(_filePath, _code) => {
-					const patchResult = patchOptions(esbuildOptions);
-					let result;
+					const patchResult = patchOptions(esbuildOptions)
+					let result
 					try {
-						result = esbuildTransformSync(_code, esbuildOptions);
+						result = esbuildTransformSync(_code, esbuildOptions)
 					} catch (error) {
-						throw formatEsbuildError(error as TransformFailure);
+						throw formatEsbuildError(error as TransformFailure)
 					}
-					return patchResult(result);
+					return patchResult(result)
 				},
 				(_filePath, _code) => transformDynamicImport(_filePath, _code, true),
 			],
-		);
+		)
 
-		cache.set(hash, transformed);
+		cache.set(hash, transformed)
 	}
 
-	return transformed;
-};
+	return transformed
+}
 
 // Used by esm-loader
 export const transform = async (
@@ -122,40 +122,39 @@ export const transform = async (
 		format: 'esm',
 		sourcefile: filePath,
 		...extendOptions,
-	} as const;
+	} as const
 
 	const hash = sha1([
 		code,
 		JSON.stringify(esbuildOptions),
 		esbuildVersion,
 		transformDynamicImportVersion,
-		'const-enum-v1', // Force cache invalidation
-	].join('-'));
-	let transformed = cache.get(hash);
+		'const-enum-v3-fixed', // Force cache invalidation for fixed transformer
+	].join('-'))
+	let transformed = cache.get(hash)
 
 	if (!transformed) {
 		transformed = await applyTransformers(
 			filePath,
 			code,
 			[
-				// Apply const enum transformation before esbuild
-				async (_filePath, _code) => transformConstEnum(_filePath, _code),
 				async (_filePath, _code) => {
-					const patchResult = patchOptions(esbuildOptions);
-					let result;
+					const patchResult = patchOptions(esbuildOptions)
+					let result
 					try {
-						result = await esbuildTransform(_code, esbuildOptions);
+						result = await esbuildTransform(_code, esbuildOptions)
 					} catch (error) {
-						throw formatEsbuildError(error as TransformFailure);
+						throw formatEsbuildError(error as TransformFailure)
 					}
-					return patchResult(result);
+					return patchResult(result)
 				},
 				(_filePath, _code) => transformDynamicImport(_filePath, _code, true),
+				(_filePath, _code) => transformConstEnum(_filePath, _code),
 			],
-		);
+		)
 
-		cache.set(hash, transformed);
+		cache.set(hash, transformed)
 	}
 
-	return transformed;
-};
+	return transformed
+}

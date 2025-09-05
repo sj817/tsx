@@ -74,7 +74,7 @@
 	"dependencies": {
 		"esbuild": "~0.25.9",
 		"get-tsconfig": "^4.7.5",
-		"oxc-parser": "^0.86.0"
+		"resolve.exports": "^2.0.3"
 	},
 	"optionalDependencies": {
 		"fsevents": "~2.3.3"
