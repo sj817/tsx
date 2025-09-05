@@ -73,8 +73,7 @@
 	},
 	"dependencies": {
 		"esbuild": "~0.25.9",
-		"get-tsconfig": "^4.7.5",
-		"resolve.exports": "^2.0.3"
+		"get-tsconfig": "^4.7.5"
 	},
 	"optionalDependencies": {
 		"fsevents": "~2.3.3"
